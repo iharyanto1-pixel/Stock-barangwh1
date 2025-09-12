@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Stock Barang (WH)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f8;
+      margin: 20px;
+      color: #333;
+    }
+    h2, h3 {
+      color: #2c3e50;
+    }
+    input, select, button, textarea {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-family: inherit;
+    }
+    button {
+      cursor: pointer;
+      font-weight: bold;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      background-color: white;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    th {
+      background-color: #34495e;
+      color: white;
+      padding: 10px;
+    }
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    .aksi button {
+      margin: 2px;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+    }
+    .hijau-muda { background-color: #a3e4d7; color: #145a32; }
+    .hijau-tua { background-color: #27ae60; color: white; }
+    .merah { background-color: #e74c3c; color: white; }
+    .kuning { background-color: #f7dc6f; color: #7d6608; }
+    #cari {
+      width: 300px;
+    }
+    .form-section {
+      background-color: #ecf0f1;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    #modal-riwayat {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.2);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    #modal-riwayat .modal-content {
+      background: white;
+      padding: 24px;
+      border-radius: 10px;
+      min-width: 350px;
+      max-width: 80vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    #modal-riwayat h3 {
+      margin-top: 0;
+    }
+    #modal-riwayat table {
+      margin-top: 0;
+      box-shadow: none;
+    }
+    #modal-riwayat .close-btn {
+      float: right;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 6px 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>📦 STOCK BARANG (WH)</h2>
+
+<div class="form-section">
+  <h3>➕ Tambah Barang Baru</h3>
+  <input id="nama" placeholder="Nama Barang">
+  <select id="satuan">
+    <option>kg</option><option>lt</option><option>pcs</option><option>lbr</option><option>pack</option>
+  </select>
+  <input id="jumlah" type="number" step="0.01" placeholder="Jumlah">
+  <textarea id="keterangan" placeholder="Keterangan Barang" rows="2" cols="30"></textarea>
+  <button onclick="tambahBarang()" style="background-color:#2980b9; color:white;">Simpan</button>
+</div>
+
+<input id="cari" placeholder="🔍 Cari berdasarkan nama barang..." oninput="filterBarang()">
+
+<table id="tabel">
+  <thead>
+    <tr>
+      <th>No</th>
+      <th>Nama Barang</th>
+      <th>Satuan</th>
+      <th>Jumlah</th>
+      <th>Barang Masuk</th>
+      <th>Barang Keluar</th>
+      <th>Saldo</th>
+      <th>Keterangan</th>
+      <th>Aksi</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<!-- Modal Riwayat Transaksi -->
+<div id="modal-riwayat">
+  <div class="modal-content">
+    <button class="close-btn" onclick="tutupModalRiwayat()">Tutup</button>
+    <h3 id="judul-modal-riwayat">Riwayat Transaksi</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal & Jam</th>
+          <th>Jenis</th>
+          <th>Jumlah</th>
+          <th>Keterangan</th>
+        </tr>
+      </thead>
+      <tbody id="modal-riwayat-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let barangList = [];
+let riwayatList = [];
+
+function simpanKeLocalStorage() {
+  localStorage.setItem("barangList", JSON.stringify(barangList));
+  localStorage.setItem("riwayatList", JSON.stringify(riwayatList));
+}
+
+function ambilDariLocalStorage() {
+  const dataBarang = localStorage.getItem("barangList");
+  const dataRiwayat = localStorage.getItem("riwayatList");
+  if (dataBarang) barangList = JSON.parse(dataBarang);
+  if (dataRiwayat) riwayatList = JSON.parse(dataRiwayat);
+}
+
+window.onload = function() {
+  ambilDariLocalStorage();
+  updateTabel();
+};
+
+function tambahBarang() {
+  const nama = document.getElementById('nama').value.trim();
+  const satuan = document.getElementById('satuan').value;
+  const jumlah = parseFloat(document.getElementById('jumlah').value);
+  const keterangan = document.getElementById('keterangan').value.trim();
+  if (!nama || isNaN(jumlah)) return alert("Lengkapi data!");
+
+  barangList.push({ nama, satuan, jumlah, masuk: 0, keluar: 0, keterangan });
+  simpanKeLocalStorage();
+  updateTabel();
+  document.getElementById('nama').value = '';
+  document.getElementById('jumlah').value = '';
+  document.getElementById('keterangan').value = '';
+}
+
+function updateTabel() {
+  const tbody = document.querySelector("#tabel tbody");
+  tbody.innerHTML = "";
+  barangList.forEach((b, i) => {
+    const saldo = b.jumlah + b.masuk - b.keluar;
+    const row = `<tr>
+      <td>${i + 1}</td>
+      <td>${b.nama}</td>
+      <td>${b.satuan}</td>
+      <td>${b.jumlah}</td>
+      <td>${b.masuk}</td>
+      <td>${b.keluar}</td>
+      <td>${saldo}</td>
+      <td>${b.keterangan || '-'}</td>
+      <td class="aksi">
+        <button class="hijau-muda" onclick="lihatRiwayat('${b.nama}')">Riwayat</button>
+        <button class="hijau-tua" onclick="transaksi('${b.nama}', 'Masuk')">Masuk</button>
+        <button class="merah" onclick="transaksi('${b.nama}', 'Keluar')">Keluar</button>
+        <button class="kuning" onclick="hapusBarang('${b.nama}')">Hapus</button>
+      </td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+}
+
+function transaksi(nama, jenis) {
+  tutupModalRiwayat(); // pastikan modal tertutup dan tombol bisa digunakan
+  setTimeout(function() { // beri delay agar click event selesai
+    const jumlah = parseFloat(prompt(`Jumlah ${jenis.toLowerCase()}:`));
+    const ket = prompt("Keterangan:");
+    const barang = barangList.find(b => b.nama === nama);
+    if (!barang || isNaN(jumlah)) return;
+
+    if (jenis === "Masuk") barang.masuk += jumlah;
+    else barang.keluar += jumlah;
+
+    const now = new Date();
+    const tgljam = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+    riwayatList.push({ tanggaljam: tgljam, nama, jenis, jumlah, ket });
+    simpanKeLocalStorage();
+    updateTabel();
+  }, 100);
+}
+
+function hapusBarang(nama) {
+  tutupModalRiwayat(); // pastikan modal tertutup dan tombol bisa digunakan
+  setTimeout(function() {
+    if (confirm("Hapus barang ini?")) {
+      barangList = barangList.filter(b => b.nama !== nama);
+      simpanKeLocalStorage();
+      updateTabel();
+    }
+  }, 100);
+}
+
+// Tampilkan modal riwayat transaksi barang (masuk & keluar)
+function lihatRiwayat(nama) {
+  const modal = document.getElementById('modal-riwayat');
+  const tbody = document.getElementById('modal-riwayat-body');
+  const judul = document.getElementById('judul-modal-riwayat');
+  judul.innerText = `Riwayat Transaksi: ${nama}`;
+  tbody.innerHTML = "";
+  riwayatList
+    .filter(r => r.nama === nama)
+    .sort((a, b) => new Date(b.tanggaljam) - new Date(a.tanggaljam))
+    .forEach(r => {
+      tbody.innerHTML += `<tr>
+        <td>${r.tanggaljam}</td>
+        <td>${r.jenis}</td>
+        <td>${r.jumlah}</td>
+        <td>${r.ket || '-'}</td>
+      </tr>`;
+    });
+  modal.style.display = "flex";
+}
+
+function tutupModalRiwayat() {
+  document.getElementById('modal-riwayat').style.display = "none";
+}
+
+function filterBarang() {
+  const keyword = document.getElementById("cari").value.toLowerCase();
+  const tbody = document.querySelector("#tabel tbody");
+  tbody.innerHTML = "";
+  barangList.filter(b => b.nama.toLowerCase().includes(keyword)).forEach((b, i) => {
+    const saldo = b.jumlah + b.masuk - b.keluar;
+    const row = `<tr>
+      <td>${i + 1}</td>
+      <td>${b.nama}</td>
+      <td>${b.satuan}</td>
+      <td>${b.jumlah}</td>
+      <td>${b.masuk}</td>
+      <td>${b.keluar}</td>
+      <td>${saldo}</td>
+      <td>${b.keterangan || '-'}</td>
+      <td class="aksi">
+        <button class="hijau-muda" onclick="lihatRiwayat('${b.nama}')">Riwayat</button>
+        <button class="hijau-tua" onclick="transaksi('${b.nama}', 'Masuk')">Masuk</button>
+        <button class="merah" onclick="transaksi('${b.nama}', 'Keluar')">Keluar</button>
+        <button class="kuning" onclick="hapusBarang('${b.nama}')">Hapus</button>
+      </td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+}
+
+// Tutup modal jika klik di luar modal content
+window.onclick = function(event) {
+  const modal = document.getElementById('modal-riwayat');
+  if (event.target == modal) modal.style.display = "none";
+}
+</script>
+
+</body>
+</html>
