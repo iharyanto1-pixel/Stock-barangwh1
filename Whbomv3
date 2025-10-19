@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GUDANG MIX — v3 (Multi-User)</title>
+  <style>
+    :root{--bg:#0f1724;--card:#111827;--muted:#94a3b8;--accent:#2563eb;--success:#10b981;--danger:#ef4444;--yellow:#f59e0b}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:#e6eef8;transition:background .25s,color .25s}
+    .container{max-width:1100px;margin:18px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{margin:0;font-size:20px}
+    input,select,button,textarea{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit}
+    button{cursor:pointer}
+    .btn{padding:8px 10px;border-radius:8px}
+    .btn-primary{background:var(--accent);color:#fff;border:none}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    .btn-danger{background:transparent;color:var(--danger);border:1px solid rgba(239,68,68,0.12)}
+    .top-right{display:flex;gap:8px;align-items:center}
+    .form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+    .form input[type=number]{max-width:140px}
+    .form select{max-width:180px}
+    .tools{display:flex;gap:8px;align-items:center;margin-top:10px}
+    #search{flex:1;min-width:200px}
+    #categoryFilter{width:180px}
+    table{width:100%;border-collapse:collapse;margin-top:12px;min-width:700px}
+    th,td{text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,0.04)}
+    thead th{background:transparent;color:#cfe8ff}
+    tbody tr{transition:opacity .25s,transform .25s}
+    tbody tr.fade{opacity:0.05;transform:translateY(6px)}
+    .cat-bahan td{background:linear-gradient(90deg, rgba(16,185,129,0.06), transparent)}
+    .cat-jadi td{background:linear-gradient(90deg, rgba(37,99,235,0.06), transparent)}
+    .cat-kemas td{background:linear-gradient(90deg, rgba(245,158,11,0.06), transparent)}
+    .actions button{margin-right:6px}
+    #printArea{display:none;padding:12px;position:relative}
+    .card{display:inline-block;width:230px;border:2px dashed rgba(255,255,255,0.06);padding:12px;margin:8px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+    .print-controls{margin-top:12px}
+    .toast{position:fixed;right:16px;bottom:16px;background:#0b1220;color:#cfe8ff;padding:10px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(2,6,23,0.6);opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s}
+    .toast.show{opacity:1;transform:translateY(0)}
+    .light{--bg:#f6f9ff;--card:#ffffff;color:#071036}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:12px}
+    .modal .box{background:var(--card);padding:12px;border-radius:10px;max-width:920px;width:100%;color:inherit}
+    .row{display:flex;gap:8px;align-items:center}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .no-print{display:inline-block}
+    @media print{ .no-print{display:none !important} body *{visibility:hidden} #printArea, #printArea *{visibility:visible} #printArea{position:fixed;left:0;top:0;width:100%;background:#fff;color:#000} }
+    @media (max-width:900px){table{font-size:13px}}
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <div>
+        <h1>GUDANG MIX</h1>
+        <div style="color:var(--muted);font-size:13px">Versi v3 • Multi-User</div>
+      </div>
+      <div class="top-right">
+        <div id="userInfo" style="display:flex;align-items:center;gap:8px">
+          <span id="currentUserDisplay"></span>
+          <button id="logoutBtn" class="btn btn-ghost">Logout</button>
+        </div>
+        <select id="themeToggle" title="Mode: Light/Dark"><option value="dark">Mode: Dark</option><option value="light">Mode: Light</option></select>
+        <button id="manageUsersBtn" class="btn btn-ghost">Manage Users</button>
+        <button id="showAll" class="btn btn-ghost">Tampilkan Semua</button>
+      </div>
+    </header>
+
+    <section class="form">
+      <input id="name" placeholder="Nama barang" />
+      <input id="sku" placeholder="Nomor SKU (opsional)" />
+      <select id="category"><option value="bahan">Bahan Baku</option><option value="jadi">Barang Jadi</option><option value="kemas">Kemasan</option></select>
+      <input id="unit" placeholder="Satuan (kg/lt/pcs/pack)" />
+      <input id="qty" type="number" step="0.01" placeholder="Jumlah" />
+      <button id="addBtn" class="btn btn-primary">Tambah</button>
+    </section>
+
+    <section class="tools">
+      <input id="search" placeholder="Cari nama, sku atau satuan..." />
+      <select id="categoryFilter"><option value="">Semua Kategori</option><option value="bahan">Bahan Baku</option><option value="jadi">Barang Jadi</option><option value="kemas">Kemasan</option></select>
+      <button id="printBtn" class="btn btn-ghost">Cetak Kartu</button>
+      <button id="manageBomBtn" class="btn btn-ghost">Kelola BOM</button>
+    </section>
+
+    <div style="overflow:auto;margin-top:8px">
+      <table id="stockTable"><thead><tr><th>No</th><th>Nama</th><th>SKU</th><th>Kategori</th><th>Satuan</th><th>Jumlah</th><th>Riwayat</th><th>Aksi</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="printArea">
+      <button id="backToMenu" class="no-print btn btn-ghost" style="position:fixed;left:12px;top:12px;z-index:999">← Kembali ke Menu Utama</button>
+      <h2 style="margin:0 0 8px">Kartu Stok</h2>
+      <div id="cardList"></div>
+      <div class="print-controls"><button onclick="closePrint()" class="btn btn-ghost">Kembali ke Menu Utama</button><button onclick="window.print()" class="btn btn-primary">Print</button></div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="modal" class="modal"><div class="box"><div id="modalContent"></div><div style="text-align:right;margin-top:8px"><button onclick="closeModal()" class="btn btn-ghost">Tutup</button></div></div></div>
+
+  <script>
+    const STORAGE_KEY = 'gudangMixData_v4';
+    const THEME_KEY = 'gudangMixTheme_v1';
+    const BOM_KEY = 'gudangMixBOM_v1';
+    const TRANS_KEY = 'gudangMixTrans_v1';
+    const USERS_KEY = 'gudangMixUsers_v1';
+    const CUR_USER_KEY = 'gudangMixCurUser_v1';
+
+    // default users (Admin, op1-3, viewer)
+    const DEFAULT_USERS = [
+      {id:'admin',pwd:'1234',role:'admin'},
+      {id:'op1',pwd:'1111',role:'operator'},
+      {id:'op2',pwd:'2222',role:'operator'},
+      {id:'op3',pwd:'3333',role:'operator'},
+      {id:'view',pwd:'0000',role:'viewer'}
+    ];
+
+    let stock = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let bomMap = JSON.parse(localStorage.getItem(BOM_KEY) || '{}');
+    let trans = JSON.parse(localStorage.getItem(TRANS_KEY) || '[]');
+    let users = JSON.parse(localStorage.getItem(USERS_KEY) || 'null');
+    let currentUser = JSON.parse(localStorage.getItem(CUR_USER_KEY) || 'null');
+
+    if(!users){ users = DEFAULT_USERS; localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+
+    const tbody = document.querySelector('#stockTable tbody');
+    const toast = document.getElementById('toast');
+
+    // theme
+    const themeSelect = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    themeSelect.value = savedTheme; applyTheme(savedTheme);
+    themeSelect.addEventListener('change', e=>{ applyTheme(e.target.value); showToast(e.target.value==='dark'? 'Mode Gelap Aktif':'Mode Terang Aktif'); localStorage.setItem(THEME_KEY,e.target.value); });
+
+    // UI elements
+    document.getElementById('addBtn').addEventListener('click', ()=>{ if(!isAllowed('add')) return alert('Tidak punya akses'); addItem(); });
+    document.getElementById('search').addEventListener('input', renderTable);
+    document.getElementById('categoryFilter').addEventListener('change', renderTable);
+    document.getElementById('showAll').addEventListener('click', ()=>{ document.getElementById('search').value=''; document.getElementById('categoryFilter').value=''; renderTable(); });
+    document.getElementById('printBtn').addEventListener('click', openPrint);
+    document.getElementById('manageBomBtn').addEventListener('click', ()=>{ if(!isAllowed('bom')) return alert('Tidak punya akses'); openBomManager(); });
+    document.getElementById('manageUsersBtn').addEventListener('click', ()=>{ if(!isAllowed('manageUsers')) return alert('Tidak punya akses'); openUserManager(); });
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+
+    document.getElementById('backToMenu').addEventListener('click', closePrint);
+
+    function applyTheme(t){ if(t==='light'){ document.documentElement.classList.add('light'); } else { document.documentElement.classList.remove('light'); } }
+    function saveAll(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(stock)); localStorage.setItem(BOM_KEY, JSON.stringify(bomMap)); localStorage.setItem(TRANS_KEY, JSON.stringify(trans)); localStorage.setItem(USERS_KEY, JSON.stringify(users)); if(currentUser) localStorage.setItem(CUR_USER_KEY, JSON.stringify(currentUser)); }
+    function showToast(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1600); }
+
+    // access control
+    function isAllowed(action){ // admin full, operator limited, viewer read-only
+      if(!currentUser) return false; if(currentUser.role==='admin') return true; if(currentUser.role==='operator'){ return ['in','out'].includes(action); } return false; }
+
+    // login flow
+    function showLogin(){ const html = `<h3>Login GUDANG MIX</h3><div class='col'><input id='li_id' placeholder='User ID'/><input id='li_pwd' placeholder='Password' type='password'/><div style='display:flex;gap:8px;margin-top:8px'><button class='btn btn-primary' onclick='doLogin()'>Login</button><button class='btn btn-ghost' onclick='useDefaults()'>Gunakan Default</button></div></div>`; openModal(html); }
+    function doLogin(){ const id = document.getElementById('li_id').value.trim(); const pwd = document.getElementById('li_pwd').value; const u = users.find(x=>x.id===id && x.pwd===pwd); if(!u){ alert('User / Password salah'); return } currentUser = {id:u.id,role:u.role}; localStorage.setItem(CUR_USER_KEY, JSON.stringify(currentUser)); closeModal(); initAfterLogin(); }
+    function useDefaults(){ // helper to prefill demo users in case empty
+      document.getElementById('li_id').value='admin'; document.getElementById('li_pwd').value='1234'; }
+    function logout(){ if(confirm('Logout?')){ currentUser=null; localStorage.removeItem(CUR_USER_KEY); showLogin(); updateUserDisplay(); } }
+
+    function initAfterLogin(){ updateUserDisplay(); renderTable(); showToast('Welcome '+currentUser.id); }
+
+    function updateUserDisplay(){ const el = document.getElementById('currentUserDisplay'); if(!currentUser){ el.textContent='(belum login)'; document.getElementById('userInfo').style.display='none'; } else { el.textContent = currentUser.id + ' (' + currentUser.role + ')'; document.getElementById('userInfo').style.display='flex'; } // show/hide manage users btn
+      document.getElementById('manageUsersBtn').style.display = currentUser && currentUser.role==='admin' ? 'inline-block' : 'none'; // add button
+      // enable/disable add item for non-admin
+      document.getElementById('addBtn').style.display = currentUser && currentUser.role==='admin' ? 'inline-block' : 'none'; }
+
+    // data actions
+    function addItem(){ const name=document.getElementById('name').value.trim(); const sku=document.getElementById('sku').value.trim(); const category=document.getElementById('category').value; const unit=document.getElementById('unit').value.trim(); const qty=parseFloat(document.getElementById('qty').value)||0; if(!name||!unit||qty<=0){ alert('Isi nama, satuan, dan jumlah > 0'); return } const id = Date.now().toString(); stock.push({id,name,sku,category,unit,qty}); saveAll(); renderTable(); clearForm(); showToast('Barang ditambahkan'); }
+    function clearForm(){ document.getElementById('name').value=''; document.getElementById('sku').value=''; document.getElementById('unit').value=''; document.getElementById('qty').value=''; }
+
+    function renderTable(){ if(!currentUser) return; const list=getFiltered(); Array.from(tbody.children).forEach(r=>r.classList.add('fade')); setTimeout(()=>{ tbody.innerHTML=''; list.forEach((it,i)=>{ const tr=document.createElement('tr'); tr.className = it.category==='bahan'? 'cat-bahan' : it.category==='jadi'? 'cat-jadi':'cat-kemas'; tr.innerHTML=`<td>${i+1}</td><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.sku||'')}</td><td>${it.category==='bahan'?'Bahan Baku':it.category==='jadi'?'Barang Jadi':'Kemasan'}</td><td>${it.unit}</td><td>${Number(it.qty)}</td><td><button class='btn btn-ghost' onclick="openHistory('${it.id}')">Riwayat</button></td><td class="actions">` + actionButtonsHtml(it) + `</td>`; tbody.appendChild(tr); }); },140); }
+
+    function actionButtonsHtml(it){ const id=it.id; let html=''; html += `<button class='btn btn-ghost' onclick="editItem('${id}')" ${currentUser.role!=='admin'?'style=display:none':''}>Edit</button>`; html += `<button class='btn btn-ghost' onclick="transaksi('${id}','in')" ${isAllowed('in')? '':'style=display:none'}>IN</button>`; html += `<button class='btn btn-ghost' onclick="transaksi('${id}','out')" ${isAllowed('out')? '':'style=display:none'}>OUT</button>`; if(it.category==='jadi'){ html += `<button class='btn btn-ghost' onclick="openBomEditor('${id}')" ${currentUser.role!=='admin'?'style=display:none':''}>Edit BOM</button>`; html += `<button class='btn btn-primary' onclick="openAssemble('${id}')" ${currentUser.role!=='admin'?'style=display:none':''}>Rakit</button>`; } html += `<button class='btn btn-danger' onclick="confirmDelete('${id}')" ${currentUser.role!=='admin'?'style=display:none':''}>Hapus</button>`; return html; }
+
+    function editItem(id){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const it=stock.find(x=>x.id===id); if(!it) return; const newName=prompt('Edit Nama:',it.name); if(newName===null) return; const newSku=prompt('Edit Nomor SKU (bebas format):',it.sku||''); if(newSku===null) return; const newUnit=prompt('Edit Satuan:',it.unit); if(newUnit===null) return; const newQty=prompt('Edit Jumlah:',it.qty); if(newQty===null||isNaN(newQty)||Number(newQty)<0){ alert('Jumlah tidak valid'); return } const newCat=prompt('Kategori (bahan/jadi/kemas):',it.category); if(newCat===null) return; if(!['bahan','jadi','kemas'].includes(newCat)) return alert('Kategori tidak valid'); it.name=newName.trim(); it.sku=newSku.trim(); it.unit=newUnit.trim(); it.qty=Number(newQty); it.category=newCat; saveAll(); renderTable(); showToast('Data diperbarui'); }
+
+    function transaksi(id,type){ if(!isAllowed(type==='in'?'in':'out')) return alert('Tidak punya akses'); const it=stock.find(x=>x.id===id); if(!it) return; const val=prompt((type==='in'?'Tambah':'Kurangi')+' jumlah untuk '+it.name+':','1'); if(val===null) return; const n=parseFloat(val); if(isNaN(n)||n<=0) return alert('Nilai tidak valid'); it.qty = type==='in'? Number(it.qty)+n : Number(it.qty)-n; trans.unshift({id:Date.now().toString(),type:type==='in'?'IN':'OUT',itemId:id,sku:it.sku||'',name:it.name,qty:n,user:currentUser.id,date:new Date().toISOString(),note:''}); saveAll(); renderTable(); showToast('Transaksi tersimpan'); }
+
+    function confirmDelete(id){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const it=stock.find(x=>x.id===id); if(!it) return; if(confirm('Yakin hapus: '+it.name+' ?')){ stock = stock.filter(x=>x.id!==id); if(bomMap[id]) delete bomMap[id]; trans.unshift({id:Date.now().toString(),type:'DELETE',itemId:id,sku:it.sku||'',name:it.name,qty:0,user:currentUser.id,date:new Date().toISOString(),note:'Hapus barang'}); saveAll(); renderTable(); showToast('Barang dihapus'); } }
+
+    // BOM manager single-page modal
+    function openBomManager(){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const items = stock.filter(x=>x.category==='jadi'); const html = `<h3>Kelola BOM (Produk Jadi)</h3><div style='max-height:320px;overflow:auto'><table style='width:100%'><thead><tr><th>Produk Jadi</th><th>SKU</th><th>BOM (komponen)</th><th>Aksi</th></tr></thead><tbody>${items.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.sku||'')}</td><td>${(bomMap[p.id]||[]).map(c=>escapeHtml((stock.find(s=>s.id===c.componentId)||{name:'[hilang]'}).name)+ ' x'+c.qty).join('<br>')||'-'}</td><td><button class='btn btn-ghost' onclick="openBomEditor('${p.id}')">Edit BOM</button></td></tr>`).join('')}</tbody></table></div>`; openModal(html); }
+
+    // open BOM editor for a product id
+    function openBomEditor(productId){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const product = stock.find(s=>s.id===productId); if(!product) return alert('Produk tidak ditemukan'); const components = bomMap[productId]||[]; const compRows = components.map((c,i)=>`<div class='row' data-index='${i}' style='margin-bottom:6px'><select class='comp-select' data-i='${i}'>${stock.filter(s=>s.id!==productId).map(u=>`<option value='${u.id}' ${u.id===c.componentId?'selected':''}>${escapeHtml(u.name)} (${u.unit})</option>`).join('')}</select><input class='comp-qty' data-i='${i}' type='number' step='0.01' value='${c.qty}' style='width:100px;margin-left:8px'/><button onclick="removeCompRow(${i})" class='btn btn-danger' style='margin-left:8px'>-</button></div>`).join('') || '';
+      const html = `<h3>Edit BOM - ${escapeHtml(product.name)}</h3>
+        <div style='display:flex;gap:8px;margin-bottom:8px'><div class='col'><label>Nomor SKU (produk)</label><input id='bom_sku' value='${escapeHtml(product.sku||'')}' placeholder='SKU produk'/></div></div>
+        <div><div id='compList'>${compRows}</div><div style='margin-top:8px'><button class='btn btn-ghost' onclick='addCompRow()'>Tambah Komponen</button></div>
+        <div style='margin-top:10px;text-align:right'><button class='btn btn-primary' onclick="saveBom('${productId}')">Simpan BOM</button></div></div>`; openModal(html);
+      setTimeout(()=>{ if(!document.querySelector('.comp-select')) addCompRow(); },60);
+    }
+
+    function addCompRow(){ const compList = document.getElementById('compList'); const i = compList.children.length; const sel = `<select class='comp-select' data-i='${i}'>${stock.map(u=>`<option value='${u.id}'>${escapeHtml(u.name)} (${u.unit})</option>`).join('')}</select>`; const row = document.createElement('div'); row.className='row'; row.setAttribute('data-index',i); row.style.marginBottom='6px'; row.innerHTML = sel + `<input class='comp-qty' data-i='${i}' type='number' step='0.01' value='1' style='width:100px;margin-left:8px'/><button onclick="removeCompRow(${i})" class='btn btn-danger' style='margin-left:8px'>-</button>`; compList.appendChild(row); }
+    function removeCompRow(i){ const compList = document.getElementById('compList'); const el = compList.querySelector(`[data-index='${i}']`); if(el) el.remove(); Array.from(compList.children).forEach((c,idx)=>{ c.setAttribute('data-index',idx); const sel=c.querySelector('.comp-select'); const qty=c.querySelector('.comp-qty'); if(sel) sel.setAttribute('data-i',idx); if(qty) qty.setAttribute('data-i',idx); }); }
+
+    function saveBom(productId){ const prod = stock.find(s=>s.id===productId); if(!prod) return; const skuInput = document.getElementById('bom_sku'); if(skuInput) prod.sku = skuInput.value.trim(); const compList = document.getElementById('compList'); const rows = Array.from(compList.children); const comps = rows.map(r=>{ const sel=r.querySelector('.comp-select'); const qty=r.querySelector('.comp-qty'); return {componentId: sel.value, qty: Number(qty.value)} }).filter(x=>x.componentId && x.qty>0); bomMap[productId]=comps; trans.unshift({id:Date.now().toString(),type:'BOM_EDIT',itemId:productId,sku:prod.sku||'',name:prod.name,qty:0,user:currentUser.id,date:new Date().toISOString(),note:'Edit BOM'}); saveAll(); closeModal(); showToast('BOM tersimpan'); }
+
+    // assemble
+    function openAssemble(productId){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const product = stock.find(s=>s.id===productId); if(!product) return; const comps = bomMap[productId]||[]; if(comps.length===0) return alert('BOM belum dibuat untuk produk ini'); const compInfo = comps.map(c=>{ const comp = stock.find(s=>s.id===c.componentId) || {name:'[hilang]',qty:0,unit:''}; return `<div>${escapeHtml(comp.name)} (stok: ${comp.qty} ${comp.unit}) — butuh ${c.qty} per unit</div>`; }).join(''); const html = `<h3>Rakit - ${escapeHtml(product.name)}</h3><div style='max-height:240px;overflow:auto'>${compInfo}</div><div style='margin-top:8px'><input id='assembleQty' type='number' step='1' placeholder='Jumlah unit yang ingin dirakit' /></div><div style='text-align:right;margin-top:8px'><button class='btn btn-primary' onclick="processAssemble('${productId}')">Proses Rakit</button></div>`; openModal(html); }
+
+    function processAssemble(productId){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const q = Number(document.getElementById('assembleQty').value||0); if(!q || q<=0){ alert('Masukkan jumlah > 0'); return } const comps = bomMap[productId]||[]; const shortage = []; comps.forEach(c=>{ const comp = stock.find(s=>s.id===c.componentId); const need = c.qty * q; if(!comp || comp.qty < need) shortage.push({name: comp?comp.name:'[hilang]',need,have: comp?comp.qty:0}); }); if(shortage.length) return alert('Stok komponen kurang:\n'+shortage.map(s=>`${s.name} butuh ${s.need} punya ${s.have}`).join('\n'));
+      comps.forEach(c=>{ const comp = stock.find(s=>s.id===c.componentId); comp.qty = Number((comp.qty - c.qty * q).toFixed(4)); trans.unshift({id:Date.now().toString(),type:'ASSEMBLE_USE',itemId:comp.id,sku:comp.sku||'',name:comp.name,qty: c.qty * q,user:currentUser.id,date:new Date().toISOString(),note:`Used for assemble ${productId}`}); });
+      const prod = stock.find(s=>s.id===productId); prod.qty = Number((prod.qty + q).toFixed(4)); trans.unshift({id:Date.now().toString(),type:'ASSEMBLE_MADE',itemId:prod.id,sku:prod.sku||'',name:prod.name,qty:q,user:currentUser.id,date:new Date().toISOString(),note:'Assembled from BOM'});
+      saveAll(); renderTable(); closeModal(); showToast('Perakitan selesai'); }
+
+    // history (popup) - show all transactions for an item
+    function openHistory(itemId){ if(!currentUser) return; const it = stock.find(s=>s.id===itemId); if(!it) return; const logs = trans.filter(t=>t.itemId===itemId); const rows = logs.map(l=>`<tr><td>${new Date(l.date).toLocaleString()}</td><td>${escapeHtml(l.type)}</td><td>${escapeHtml(l.sku||'')}</td><td>${escapeHtml(l.name)}</td><td>${l.qty}</td><td>${escapeHtml(l.user||'')}</td><td>${escapeHtml(l.note||'')}</td></tr>`).join('') || '<tr><td colspan="7">Tidak ada transaksi</td></tr>'; const html = `<h3>Riwayat Transaksi - ${escapeHtml(it.name)}</h3><div style='max-height:360px;overflow:auto'><table style='width:100%'><thead><tr><th>Tanggal</th><th>Tipe</th><th>SKU</th><th>Nama</th><th>Qty</th><th>User</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table></div><div style='margin-top:8px;text-align:right'><button class='btn btn-ghost' onclick="printHistory('${itemId}')">Cetak Riwayat</button></div>`; openModal(html); }
+
+    function printHistory(itemId){ const it = stock.find(s=>s.id===itemId); if(!it) return; const logs = trans.filter(t=>t.itemId===itemId); const w = window.open('','_blank'); const rows = logs.map(l=>`<tr><td>${new Date(l.date).toLocaleString()}</td><td>${l.type}</td><td>${escapeHtml(l.sku||'')}</td><td>${escapeHtml(l.name)}</td><td>${l.qty}</td><td>${escapeHtml(l.user||'')}</td><td>${escapeHtml(l.note||'')}</td></tr>`).join(''); w.document.write('<html><head><title>Riwayat '+escapeHtml(it.name)+'</title><style>table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:6px;text-align:left}</style></head><body><h3>Riwayat '+escapeHtml(it.name)+'</h3><table><thead><tr><th>Tanggal</th><th>Tipe</th><th>SKU</th><th>Nama</th><th>Qty</th><th>User</th><th>Note</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>'); w.document.close(); }
+
+    // user manager (admin)
+    function openUserManager(){ if(currentUser.role!=='admin') return alert('Tidak punya akses'); const rows = users.map(u=>`<tr><td>${escapeHtml(u.id)}</td><td>${escapeHtml(u.role)}</td><td><button class='btn btn-ghost' onclick="resetPwd('${u.id}')">Reset Pwd</button> <button class='btn btn-danger' onclick="delUser('${u.id}')">Hapus</button></td></tr>`).join(''); const html = `<h3>Kelola User</h3><div style='max-height:320px;overflow:auto'><table style='width:100%'><thead><tr><th>User ID</th><th>Role</th><th>Aksi</th></tr></thead><tbody>${rows}</tbody></table></div><div style='margin-top:8px'><h4>Tambah User (max 5)</h4><div class='row'><input id='nu_id' placeholder='User ID'/><input id='nu_pwd' placeholder='Password'/><select id='nu_role'><option value='operator'>operator</option><option value='viewer'>viewer</option><option value='admin'>admin</option></select><button class='btn btn-primary' onclick='addUser()'>Tambah</button></div></div>`; openModal(html); }
+
+    function addUser(){ const id=document.getElementById('nu_id').value.trim(); const pwd=document.getElementById('nu_pwd').value; const role=document.getElementById('nu_role').value; if(!id||!pwd) return alert('ID & password diperlukan'); if(users.length>=5) return alert('Maksimum 5 user'); if(users.find(u=>u.id===id)) return alert('User ID sudah ada'); users.push({id,pwd,role}); saveAll(); openUserManager(); showToast('User ditambahkan'); }
+    function delUser(id){ if(id==='admin') return alert('Tidak boleh hapus admin'); if(!confirm('Hapus user '+id+' ?')) return; users = users.filter(u=>u.id!==id); saveAll(); openUserManager(); showToast('User dihapus'); }
+    function resetPwd(id){ const u=users.find(x=>x.id===id); if(!u) return; const np = prompt('Password baru untuk '+id+':', u.pwd); if(np===null) return; u.pwd = np; saveAll(); openUserManager(); showToast('Password direset'); }
+
+    // modal helpers
+    function openModal(html){ document.getElementById('modalContent').innerHTML = html; document.getElementById('modal').style.display = 'flex'; }
+    function closeModal(){ document.getElementById('modal').style.display = 'none'; }
+
+    // print cards
+    function openPrint(){ if(!currentUser) return showLogin(); const list=getFiltered(); const cardList=document.getElementById('cardList'); cardList.innerHTML = list.map(it=>`<div class='card'><strong>${escapeHtml(it.name)}</strong><div>SKU: ${escapeHtml(it.sku||'')}</div><div>Kategori: ${it.category==='bahan'?'Bahan Baku':it.category==='jadi'?'Barang Jadi':'Kemasan'}</div><div>Satuan: ${it.unit}</div><div>Jumlah: ${it.qty}</div></div>`).join(''); document.getElementById('printArea').style.display='block'; document.querySelectorAll('#app > *:not(#printArea)').forEach(el=>el.style.display='none'); document.getElementById('backToMenu').style.display='inline-block'; window.scrollTo(0,0); }
+    function closePrint(){ document.getElementById('printArea').style.display='none'; document.querySelectorAll('#app > *:not(#printArea)').forEach(el=>el.style.display=''); document.getElementById('backToMenu').style.display='none'; }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function getFiltered(){ const q=document.getElementById('search').value.trim().toLowerCase(); const cat=document.getElementById('categoryFilter').value; return stock.filter(it=>{ if(cat && it.category!==cat) return false; if(!q) return true; return it.name.toLowerCase().includes(q) || (it.unit||'').toLowerCase().includes(q) || (it.sku||'').toLowerCase().includes(q); }); }
+
+    // expose functions
+    window.openBomEditor = openBomEditor; window.openAssemble = openAssemble; window.editItem = editItem; window.transaksi = transaksi; window.confirmDelete = confirmDelete; window.openPrint = openPrint; window.closePrint = closePrint; window.addCompRow = addCompRow; window.removeCompRow = removeCompRow; window.openHistory = openHistory; window.printHistory = printHistory; window.openUserManager = openUserManager; window.addUser = addUser; window.delUser = delUser; window.resetPwd = resetPwd;
+
+    // init
+    function init(){ if(!currentUser){ showLogin(); } else { initAfterLogin(); } updateUserDisplay(); }
+    init();
+  </script>
+</body>
+</html>
